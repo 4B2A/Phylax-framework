@@ -1,4 +1,4 @@
-# Hada v1.1
+# Phylax v1.1
 
 <p align="center">
   <img src="https://shields.io" alt="Version"/>
@@ -20,22 +20,22 @@
 
 <p>To initiate the automated binary analysis engine, execute the framework directly via the terminal environment:</p>
 
-<pre><code>python3 hada.py</code></pre>
+<pre><code>python3 phylax.py</code></pre>
 
 <h3>Execution Blueprint</h3>
-<pre><code>  ___ ___             .___       
- /   |   \_____     __| _/____   
-/    ~    \__  \   / __ |\__  \  
-\    Y    // __ \_/ /_/ | / __ \_
- \___|_  /(____  /\____ |(____  /
-       \/      \/      \/     \/ 
-        coded by 4B2A    
+<pre><code> __________.__           .__                 
+\______   \  |__ ___.__.|  | _____  ___  ___
+ |     ___/  |  <   |  ||  | \__  \ \  \/  /
+ |    |   |   Y  \___  ||  |__/ __ \_>    < 
+ |____|   |___|  / ____||____(____  /__/\_ \
+               \/\/               \/      \/
+                coded by 4B2A     
 
 Target Binary Path: /path/to/target_binary
 
 Hada Report:
 triggering input: 4141414141414141414141414141414141414141414141414141414141414141deadbeef
-Thank you for using Hada, and have a nice day!
+Thank you for using Phylax, and have a nice day!
 </code></pre>
 
 <hr>
@@ -43,7 +43,7 @@ Thank you for using Hada, and have a nice day!
 <h2>⚖️ Disclaimer</h2>
 
 <p align="justify">
-  <b>Disclaimer:</b> Hada is explicitly designed as an internal diagnostic infrastructure utility for software resilience testing, secure code review auditing, and defensive verification purposes. The author assumes no responsibility or liability for unauthorized execution, misuse, or deployment against external third-party environments without explicit authorization.
+  <b>Disclaimer:</b> Phylax is explicitly designed as an internal diagnostic infrastructure utility for software resilience testing, secure code review auditing, and defensive verification purposes. The author assumes no responsibility or liability for unauthorized execution, misuse, or deployment against external third-party environments without explicit authorization.
 </p>
 
 <hr>
