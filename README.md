@@ -1,10 +1,18 @@
-# Hada v1.0
+# Hada v1.1
 
 <p align="center">
   <img src="https://shields.io" alt="Version"/>
   <img src="https://shields.io" alt="Language"/>
   <img src="https://shields.io" alt="License"/>
 </p>
+
+<hr>
+
+<h2>📦 Installation</h2>
+
+<p>Install the necessary architectural framework and package dependencies before initiating execution:</p>
+
+<pre><code>pip install -r requirements.txt</code></pre>
 
 <hr>
 
