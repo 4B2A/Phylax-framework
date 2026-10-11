@@ -1,0 +1,6 @@
+@echo off
+title Phylax-framework Launcher
+echo [*] starting...
+pip install -r requirements.txt --quiet...
+python phylax.py
+pause
