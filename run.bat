@@ -1,6 +1,13 @@
 @echo off
 title Phylax-framework Launcher
-echo [*] starting...
-pip install -r requirements.txt --quiet...
-python phylax.py
+
+pip install -r requirements.txt --quiet
+
+
+
+if "%~1"=="" (
+    python phylax.py
+) else (
+    python phylax.py "%~1"
+)
 pause
