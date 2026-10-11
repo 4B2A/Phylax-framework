@@ -1,5 +1,6 @@
 import os
 import sys
+import argparse
 import logging
 import claripy
 import angr
@@ -195,8 +196,17 @@ class PhylaxEngine:
 
 
 def main():
+    # Komut satırı bağımsız değişken yöneticisi
+    parser = argparse.ArgumentParser(description="Phylax Framework")
+    parser.add_argument("target", nargs="?", help="Path to the target binary")
+    args = parser.parse_args()
+
     try:
-        target_path = input("Target Binary Path: ").strip()
+        # Eğer argüman verilmişse onu kullan, verilmemişse eski usul input() ile sor
+        target_path = (
+            args.target if args.target else input("Target Binary Path: ").strip()
+        )
+
         if not target_path:
             sys.exit(1)
 
