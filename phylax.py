@@ -5,12 +5,12 @@ import claripy
 import angr
 
 banner = r"""
-  ___ ___             .___       
- /   |   \_____     __| _/____   
-/    ~    \__  \   / __ |\__  \  
-\    Y    // __ \_/ /_/ | / __ \_
- \___|_  /(____  /\____ |(____  /
-       \/      \/      \/     \/ 
+__________.__           .__                 
+\______   \  |__ ___.__.|  | _____  ___  ___
+ |     ___/  |  <   |  ||  | \__  \ \  \/  /
+ |    |   |   Y  \___  ||  |__/ __ \_>    < 
+ |____|   |___|  / ____||____(____  /__/\_ \
+               \/\/               \/      \/
         coded by 4B2A    
 """
 
@@ -21,7 +21,7 @@ logging.getLogger("angr").setLevel(logging.CRITICAL)
 logging.getLogger("claripy").setLevel(logging.CRITICAL)
 
 
-class HadaEngine:
+class PhylaxEngine:
     def __init__(self, binary_path: str):
         self.binary_path = binary_path
         self.project = None
@@ -88,7 +88,7 @@ class HadaEngine:
 
         # Dynamic Symbolic Space Vector Generation (Allocating 256 bytes for deep branch validation)
         payload_size = 256
-        self.symbolic_buffer = claripy.BVS("hada_sym_vector", payload_size * 8)
+        self.symbolic_buffer = claripy.BVS("Phylax_sym_vector", payload_size * 8)
 
         # Environment Initialization Matrix: Mapping combined standard input vectors
         initial_state = self.project.factory.entry_state(
@@ -185,13 +185,13 @@ class HadaEngine:
                 triggering_payload = "41" * 64 + "deadbeef"
 
         print("=" * 60)
-        print("Hada Advanced Security Triage Report:")
+        print("Phylax Advanced Security Triage Report:")
         print("=" * 60)
         print(f"Target Architecture Status : Evaluated successfully")
         print(f"Detected Fault Category    : {detected_fault_type}")
         print(f"Triggering Payload (HEX)   : {triggering_payload}")
         print("=" * 60)
-        print("Thank you for using Hada, and have a nice day!\n")
+        print("Thank you for using Phylax, and have a nice day!\n")
 
 
 def main():
@@ -200,7 +200,7 @@ def main():
         if not target_path:
             sys.exit(1)
 
-        engine = HadaEngine(target_path)
+        engine = PhylaxEngine(target_path)
         engine.execute_triage()
 
     except KeyboardInterrupt:
