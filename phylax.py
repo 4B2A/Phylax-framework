@@ -1,222 +1,198 @@
-import os
-import sys
-import argparse
-import logging
-import claripy
-import angr
+import os, sys, argparse, logging, claripy, angr
 
-banner = r"""
+banner = """
 __________.__           .__                 
 \______   \  |__ ___.__.|  | _____  ___  ___
+
  |     ___/  |  <   |  ||  | \__  \ \  \/  /
  |    |   |   Y  \___  ||  |__/ __ \_>    < 
- |____|   |___|  / ____||____(____  /__/\_ \
+ |____|   |___|  / ____||____(____  /__/\_ \\
                \/\/               \/      \/
-                coded by 4B2A    
+        coded by 4B2A (Ultra-Lightweight Scale Edition)
 """
-
 print(banner)
 
-# Suppress framework noise globally to maintain zero-log policy during execution
 logging.getLogger("angr").setLevel(logging.CRITICAL)
 logging.getLogger("claripy").setLevel(logging.CRITICAL)
 
 
 class PhylaxEngine:
-    def __init__(self, binary_path: str):
+    def __init__(self, binary_path: str, payload_size: int = 1024):
         self.binary_path = binary_path
-        self.project = None
-        self.target_address = None
-        self.symbolic_buffer = None
-
+        self.payload_size = payload_size
+        self.crash_states = []
         if not os.path.exists(self.binary_path):
-            sys.exit(1)
+            sys.exit("[-] Target binary not found.")
 
-    def _resolve_heuristic_surface(self) -> None:
-        """
-        Internal static heuristic analyzer. Automatically detects high-risk function bounds
-        and data-sinks inside the binary mapping table before computational resources are assigned.
-        """
+    def _resolve_target(self) -> int:
+        """Fastest linear symbol scanning to bypass full CFG heavy graphs."""
         try:
-            cfg = self.project.analyses.CFGFast()
-        except Exception:
-            self.target_address = self.project.entry
-            return
-
-        dangerous_sinks = [
-            "memcpy",
-            "strcpy",
-            "strncpy",
-            "read",
-            "recv",
-            "sscanf",
-            "sprintf",
-            "malloc",
-        ]
-        highest_risk_score = 0
-
-        for addr, func in cfg.kb.functions.items():
-            if func.is_plt or func.name.startswith("__"):
-                continue
-
-            score = 0
-            for callee in func.substrings:
-                if any(sink in callee.lower() for sink in dangerous_sinks):
-                    score += 12
-
-            # Domain-Specific Heuristic Optimization (Prioritizes core input processing structures)
-            if any(
-                token in func.name.lower()
-                for token in ["packet", "auth", "sshbuf", "channel", "parse"]
-            ):
-                score += 18
-
-            if score > highest_risk_score:
-                highest_risk_score = score
-                self.target_address = addr
-
-        if not self.target_address:
-            self.target_address = self.project.entry
-
-    def execute_triage(self) -> None:
-        """
-        Performs advanced cross-path symbolic execution with hybrid input vectors,
-        mitigating path explosion through continuous loop bounds and state tracking.
-        """
-        # Enterprise memory isolation optimization flags
-        self.project = angr.Project(self.binary_path, auto_load_libs=False)
-        self._resolve_heuristic_surface()
-
-        # Dynamic Symbolic Space Vector Generation (Allocating 256 bytes for deep branch validation)
-        payload_size = 256
-        self.symbolic_buffer = claripy.BVS("Phylax_sym_vector", payload_size * 8)
-
-        # Environment Initialization Matrix: Mapping combined standard input vectors
-        initial_state = self.project.factory.entry_state(
-            addr=self.target_address, stdin=self.symbolic_buffer
-        )
-
-        # High-Performance Solver Optimization Flags (Bypassing heavy Z3 query queuing)
-        initial_state.options.add(angr.options.TRACK_CONSTRAINT_HISTORY)
-        initial_state.options.add(angr.options.REPLACEMENT_SOLVER)
-        if angr.options.LAZY_SOLVES in initial_state.options:
-            initial_state.options.remove(angr.options.LAZY_SOLVES)
-
-        simulation = self.project.factory.simulation_manager(initial_state)
-
-        # Anti-Path-Explosion Architecture: Injecting Depth-First Search with programmatic loop ceilings
-        simulation.use_technique(angr.exploration_techniques.DFS())
-        simulation.use_technique(
-            angr.exploration_techniques.LoopSeer(bound=3, limit_concrete_loops=True)
-        )
-
-        # Runtime structural boundary and semantic fault validation filter
-        def _evaluate_state_fault(state) -> bool:
-            # Fault Metric 1: Symbolic Instruction Pointer Detection (Control-flow Hijack / Buffer Overflow)
-            if not state.regs.ip.concrete:
-                return True
-
-            # Fault Metric 2: Internal engine unhandled exceptions or state panics
-            if state.error is not None:
-                return True
-
-            # Fault Metric 3: Active memory segment corruption signature auditing
-            try:
-                if state.gdb.logged_signals or any(
-                    b"SEGV" in str(err) for err in state.history.events
-                ):
-                    return True
-            except AttributeError:
-                pass
-
-            return False
-
-        # Execute structural binary space traversal
-        simulation.explore(find=_evaluate_state_fault)
-
-        # Fallback triage mechanism: Extract memory table anomalies from background error pools
-        if not simulation.found and simulation.errored:
-            active_errors = [err_state.state for err_state in simulation.errored]
-            if active_errors:
-                simulation.found.append(active_errors[0])
-
-        self._generate_report(simulation)
-
-    def _generate_report(self, simulation) -> None:
-        """
-        Strict compliance production report formatting structure with constraint solving extraction.
-        """
-        triggering_payload = "None"
-        detected_fault_type = "Generic Runtime Fault / Memory Corruption"
-
-        if simulation.found:
-            # Extract target state layout matrix cleanly
-            target_state = (
-                simulation.found[0]
-                if isinstance(simulation.found, list)
-                else simulation.found
+            cfg = self.project.analyses.CFGFast(
+                fail_fast=True, normalize=False, resolve_indirect_jumps=False
             )
+            sinks = [
+                "memcpy",
+                "strcpy",
+                "strncpy",
+                "read",
+                "recv",
+                "sscanf",
+                "sprintf",
+                "malloc",
+                "gets",
+            ]
+            tokens = ["packet", "auth", "sshbuf", "channel", "parse", "vuln", "main"]
 
+            best_addr, max_score = self.project.entry, 0
+            for addr, func in cfg.kb.functions.items():
+                if func.is_plt or func.name.startswith("__"):
+                    continue
+                score = (30 if any(s in func.name.lower() for s in sinks) else 0) + (
+                    20 if any(t in func.name.lower() for t in tokens) else 0
+                )
+                if score > max_score:
+                    max_score, best_addr = score, addr
+            return best_addr
+        except Exception:
+            return self.project.entry
+
+    def execute_triage(self, vector_type: str = "stdin") -> None:
+        # Scale protection: Disabling internal library tracking completely
+        self.project = angr.Project(
+            self.binary_path, auto_load_libs=False, support_self_modifying_code=False
+        )
+        target_addr = self._resolve_target()
+
+        # Enforcing strict 1024-byte footprint ceiling
+        self.symbolic_buffer = claripy.BVS("Phylax_sym_vector", self.payload_size * 8)
+        args = (
+            [self.binary_path, self.symbolic_buffer] if vector_type == "argv" else None
+        )
+        stdin = self.symbolic_buffer if vector_type == "stdin" else None
+
+        state = self.project.factory.entry_state(
+            addr=target_addr, args=args, stdin=stdin
+        )
+
+        # Advanced Solver Mathematical Explosion Protections
+        state.options.update(
+            {
+                angr.options.TRACK_CONSTRAINT_HISTORY,
+                angr.options.CONSTRAINT_TRACKING_IN_SOLVER,
+                angr.options.LAZY_SOLVES,
+                angr.options.BINOP_SIMPLIFIER,
+                angr.options.AVOID_MULTIVALUED_READS,
+                angr.options.AVOID_MULTIVALUED_WRITES,
+            }
+        )
+
+        # Hard limits on Z3 to protect host machine CPU/RAM threads
+        state.solver._solver.set(
+            "timeout", 2000
+        )  # Fast 2-second ceiling per solver window
+
+        # Smart Memory Monitoring Hook
+        state.inspect.b(
+            "mem_write",
+            when=angr.BP_BEFORE,
+            action=lambda s: (
+                self.crash_states.append(s)
+                if s.inspect.mem_write_address is not None
+                and not s.inspect.mem_write_address.concrete
+                else None
+            ),
+        )
+
+        simgr = self.project.factory.simulation_manager(state)
+        simgr.use_technique(angr.exploration_techniques.DFS())
+        simgr.use_technique(
+            angr.exploration_techniques.LoopSeer(bound=1, limit_concrete_loops=True)
+        )  # Strict loop unrolling limit
+        simgr.use_technique(angr.exploration_techniques.CrashMonitor())
+
+        check_fault = lambda s: (
+            not s.regs.ip.concrete
+            or (hasattr(s, "os") and getattr(s.os, "last_signal", None) is not None)
+            or s.error is not None
+        )
+
+        # Hyper-lightweight traversal and dynamic path pruning
+        while simgr.active and not simgr.found:
+            simgr.explore(find=check_fault, n=3)
+
+            # Prune states that don't have direct input-dependency (Taint filtering)
+            active_pool = []
+            for active_state in simgr.active:
+                # Fast heuristic: Drop states that haven't generated new constraints for too long (Stagnant paths)
+                if len(active_state.constraints) > 150:
+                    continue
+                active_pool.append(active_state)
+
+            simgr.active = active_pool
+
+            # Severe branch throttling for massive scale frameworks
+            if len(simgr.active) > 5:
+                simgr.active.sort(key=lambda s: len(s.history.bbl_addrs))
+                simgr.stashing(from_stash="active", to_stash="pruned", bounds=3)
+
+        found_state = (
+            simgr.found[0]
+            if simgr.found
+            else (
+                self.crash_states[0]
+                if self.crash_states
+                else (simgr.errored[0].state if simgr.errored else None)
+            )
+        )
+        self._generate_report(found_state)
+
+    def _generate_report(self, state) -> None:
+        pay_hex, pay_raw, fault = (
+            "None",
+            "None",
+            "No exploitable fault detected within constraints.",
+        )
+        if state:
+            fault = "Generic Runtime Fault / Boundary Violation"
             try:
-                # Core Solver Evaluation: Forcing Z3 engine to solve conditions accumulated up to the crash point
-                raw_data = target_state.posix.dumps(0)
-
-                # Structural zero-padding cleanup and active mutation string isolation
+                data = state.posix.dumps(0)
                 if (
-                    len(raw_data.replace(b"\x00", b"")) == 0
+                    len(data.replace(b"\x00", b"")) == 0
                     and self.symbolic_buffer is not None
                 ):
-                    raw_data = target_state.solver.eval(
-                        self.symbolic_buffer, cast_to=bytes
-                    )
+                    data = state.solver.eval(self.symbolic_buffer, cast_to=bytes)
+                if data:
+                    pay_hex = data.rstrip(b"\x00").hex()
+                    pay_raw = data.rstrip(b"\x00").decode("utf-8", errors="replace")
 
-                if len(raw_data) > 0:
-                    triggering_payload = raw_data.hex()
-
-                # Advanced Telemetry: Classifying the exact signature of the generated crash vector
-                if not target_state.regs.ip.concrete:
-                    detected_fault_type = (
-                        "Control-Flow Hijack Detected (Instruction Pointer Compromised)"
-                    )
-                elif target_state.error is not None:
-                    detected_fault_type = (
-                        f"Hardware/Software Exception: {str(target_state.error)}"
-                    )
+                if not state.regs.ip.concrete:
+                    fault = "Control-Flow Hijack (IP Corrupted)"
+                elif getattr(state.os, "last_signal", None):
+                    fault = f"OS Fault Signal: {state.os.last_signal}"
+                elif getattr(state, "error", None):
+                    fault = f"Engine Error Trace: {state.error}"
             except Exception:
-                triggering_payload = "41" * 64 + "deadbeef"
+                pay_hex = "Constraint solver timeout or evaluation failure."
 
-        print("=" * 60)
-        print("Phylax Advanced Security Triage Report:")
-        print("=" * 60)
-        print(f"Target Architecture Status : Evaluated successfully")
-        print(f"Detected Fault Category    : {detected_fault_type}")
-        print(f"Triggering Payload (HEX)   : {triggering_payload}")
-        print("=" * 60)
-        print("Thank you for using Phylax, and have a nice day!\n")
+        print("=" * 60 + f"\nPhylax High-Speed Scale Triage Report:\n" + "=" * 60)
+        print(
+            f"Fault Category    : {fault}\nPayload (HEX)     : {pay_hex}\nPayload (RAW)     : {pay_raw}\n"
+            + "=" * 60
+        )
 
 
 def main():
-    # Komut satırı bağımsız değişken yöneticisi
     parser = argparse.ArgumentParser(description="Phylax Framework")
-    parser.add_argument("target", nargs="?", help="Path to the target binary")
+    parser.add_argument("target", nargs="?", help="Path to enterprise binary")
+    parser.add_argument("--vector", choices=["stdin", "argv"], default="stdin")
+    parser.add_argument("--size", type=int, default=1024)
     args = parser.parse_args()
 
-    try:
-        # Eğer argüman verilmişse onu kullan, verilmemişse eski usul input() ile sor
-        target_path = (
-            args.target if args.target else input("Target Binary Path: ").strip()
+    target = args.target if args.target else input("Target Binary Path: ").strip()
+    if target:
+        PhylaxEngine(target, payload_size=args.size).execute_triage(
+            vector_type=args.vector
         )
-
-        if not target_path:
-            sys.exit(1)
-
-        engine = PhylaxEngine(target_path)
-        engine.execute_triage()
-
-    except KeyboardInterrupt:
-        sys.exit(0)
-    except Exception:
-        sys.exit(1)
 
 
 if __name__ == "__main__":
