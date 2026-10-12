@@ -8,7 +8,7 @@ __________.__           .__
  |    |   |   Y  \___  ||  |__/ __ \_>    < 
  |____|   |___|  / ____||____(____  /__/\_ \\
                \/\/               \/      \/
-        coded by 4B2A (Ultra-Lightweight Scale Edition)
+        coded by 4B2A 
 """
 print(banner)
 
