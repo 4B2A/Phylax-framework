@@ -1,4 +1,4 @@
-# Phylax v1.0
+# Phylax v1.1
 
 <p align="center">
   <img src="https://shields.io" alt="Version"/>
